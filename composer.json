@@ -1,0 +1,18 @@
+{
+    "name": "vulcaire/staffapp-laravel",
+    "description": "Laravel integration for the Vulcaire StaffApp PHP client.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.3",
+        "vulcaire/staffapp-php": "^0.1",
+        "illuminate/contracts": "^12.0 || ^13.0",
+        "illuminate/http": "^12.0 || ^13.0",
+        "illuminate/support": "^12.0 || ^13.0"
+    },
+    "require-dev": {"orchestra/testbench": "^10.0 || ^11.0", "phpunit/phpunit": "^12.5"},
+    "autoload": {"psr-4": {"Vulcaire\\StaffApp\\Laravel\\": "src/"}},
+    "autoload-dev": {"psr-4": {"Vulcaire\\StaffApp\\Laravel\\Tests\\": "tests/"}},
+    "extra": {"laravel": {"providers": ["Vulcaire\\StaffApp\\Laravel\\StaffAppServiceProvider"]}},
+    "scripts": {"test": "phpunit"}
+}
