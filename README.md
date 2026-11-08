@@ -4,10 +4,10 @@ Laravel 12/13 integration for `vulcaire/staffapp-php` (PHP 8.3+). This package a
 configuration, container bindings, a facade and opt-in webhook signature middleware.
 It does not depend on consumer models, tables, queues, controllers or business rules.
 
-**Development preview; not published.** The PHP client's worker API is a proposed
-contract; the current StaffApp server does not support worker sync or webhook
-delivery yet. Existing jobs, assignment reads and timesheet reads are supported.
-See the installed PHP client's README and `docs/worker-api-contract.md` for details.
+**Development preview; not published.** The PHP client can list, create, look up,
+update and cancel jobs, and can list, read, upsert and deactivate worker profiles.
+Change-request resolution and outbound webhook delivery are not implemented.
+See the installed PHP client's README and `docs/worker-api-contract.md`.
 
 ## Install
 

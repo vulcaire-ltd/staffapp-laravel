@@ -52,6 +52,20 @@ final class IntegrationTest extends TestCase
         self::assertSame([['id' => 7]], StaffApp::jobs()->all()['data']);
     }
 
+    public function test_facade_can_upsert_a_job_through_the_php_client(): void
+    {
+        $http = new HttpClient(['handler' => HandlerStack::create(new MockHandler([
+            new Response(200, [], '{"data":{"id":9,"external_id":"job-9"}}'),
+        ]))]);
+        $this->app->instance(Client::class, new Client('test-token', 'https://staffapp.example', $http));
+
+        self::assertSame(9, StaffApp::jobs()->upsert([
+            'external_id' => 'job-9',
+            'source_version' => 1,
+            'title' => 'Cover',
+        ], 'job-9')['data']['id']);
+    }
+
     public function test_middleware_accepts_signed_event(): void
     {
         $body = '{"type":"worker.change_requested","data":{"worker_id":7}}';
