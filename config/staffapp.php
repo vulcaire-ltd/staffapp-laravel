@@ -11,6 +11,10 @@ return [
             env('STAFFAPP_WEBHOOK_SECRET'),
             env('STAFFAPP_WEBHOOK_PREVIOUS_SECRET'),
         ])),
-        'tolerance' => 300,
+        'tolerance' => (int) env('STAFFAPP_WEBHOOK_TOLERANCE', 300),
+        'path' => env('STAFFAPP_WEBHOOK_PATH', 'staffapp/webhook'),
+        'route' => (bool) env('STAFFAPP_WEBHOOK_ROUTE', true),
     ],
+    // Class implementing Vulcaire\StaffApp\Laravel\Contracts\ReconcileSource.
+    'reconcile_source' => env('STAFFAPP_RECONCILE_SOURCE'),
 ];

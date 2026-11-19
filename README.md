@@ -4,10 +4,9 @@ Laravel 12/13 integration for `vulcaire/staffapp-php` (PHP 8.3+). This package a
 configuration, container bindings, a facade and opt-in webhook signature middleware.
 It does not depend on consumer models, tables, queues, controllers or business rules.
 
-**Development preview; not published.** The PHP client can list, create, look up,
-update and cancel jobs, and can list, read, upsert and deactivate worker profiles.
-Change-request resolution and outbound webhook delivery are not implemented.
-See the installed PHP client's README and `docs/worker-api-contract.md`.
+**Development preview; not published.** PHP 8.2+ and Laravel 11, 12 or 13.
+PHP 8.1 is not supported because Laravel 11 requires 8.2 and the webhook verifier
+uses readonly classes. See the PHP client's README for the HTTP contract.
 
 ## Install
 
@@ -60,7 +59,85 @@ then process them in your chosen queue. Preserve external IDs, source versions a
 idempotency keys across attempts. Model observers and data mappings belong in the
 consuming application. This package never scans or modifies an application's workers.
 
+## Mirror a host app
+
+The host keeps its own models. This package never reads them. Map only the fields
+AssignPoint needs. Notes are optional and off unless you pass them.
+
+```php
+use Vulcaire\StaffApp\Laravel\Facades\StaffApp;
+use Vulcaire\StaffApp\Laravel\Payloads\MirrorPayload;
+
+StaffApp::upsertRole('role-supervisor', 1, MirrorPayload::role('Supervisor', 'SUP'));
+
+StaffApp::upsertWorker(
+    'employee-42',
+    1,
+    MirrorPayload::worker('Sam Example', 'sam@example.com', '+447700900123'),
+    roleExternalIds: ['role-supervisor'],
+);
+
+StaffApp::upsertJob(MirrorPayload::job(
+    'job-100',
+    1,
+    'Conference cover',
+    '2026-12-01T09:00:00Z',
+    '2026-12-01T17:00:00Z',
+    [MirrorPayload::jobRole(['role_external_id' => 'role-supervisor', 'quantity_required' => 2])],
+    'Main hall',
+));
+
+StaffApp::upsertAssignment(MirrorPayload::assignment(
+    'alloc-100',
+    1,
+    'job-100',
+    'employee-42',
+    'role-supervisor',
+));
+
+// After the host's own database transaction commits:
+StaffApp::later('assignment', 'alloc-100', 2, MirrorPayload::assignment(
+    'alloc-100', 2, 'job-100', 'employee-42', 'role-supervisor',
+));
+```
+
+`later()` queues `PushMirrorRecord` with exponential backoff (10s, 30s, 90s, 270s).
+Validation and conflict responses (422 and 409) are not retried. 429, 5xx and
+transport failures are.
+
+`StaffApp::removeWorker()`, `removeJob()`, `removeAssignment()` and `removeRole()`
+deactivate or cancel by external id. Removals do not delete the AssignPoint row's
+history.
+
+### Linking an organisation that already uses AssignPoint
+
+Do not upsert over records that have no external id. Classify first:
+
+```php
+php artisan staffapp:reconcile App\Integrations\AssignPointSource
+php artisan staffapp:reconcile App\Integrations\AssignPointSource --apply
+php artisan staffapp:reconcile App\Integrations\AssignPointSource --push
+```
+
+The default is a dry run. `--apply` links unambiguous matches and changes no other
+fields. `--push` links those matches, then queues upserts for matched and new
+records. Ambiguous and conflicting rows are skipped. The source class implements
+`Vulcaire\StaffApp\Laravel\Contracts\ReconcileSource` and yields `MirrorRecord`
+values. The same report is `POST /api/v1/external/reconcile` with `dry_run: true`.
+
+A record becomes read-only in AssignPoint only when it is linked and either the
+record's `managed` flag or the organisation setting is on. Unlinking is audited
+and makes it editable again.
+
 ## Opt-in webhooks
+
+The package registers `POST /staffapp/webhook` (config `staffapp.webhooks.path`).
+A verified event is dispatched as `Vulcaire\StaffApp\Laravel\Events\WebhookReceived`.
+Throw from a listener when you could not store the event; AssignPoint will retry.
+Set `STAFFAPP_WEBHOOK_ROUTE=false` to register the route yourself and keep using
+`VerifyStaffAppWebhook`.
+
+## Previous webhook notes
 
 Set `STAFFAPP_WEBHOOK_SECRET` to the subscription's `whsec_...` secret; optionally
 set `STAFFAPP_WEBHOOK_PREVIOUS_SECRET` during rotation. They are separate from API

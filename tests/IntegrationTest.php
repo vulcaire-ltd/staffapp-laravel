@@ -10,8 +10,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Orchestra\Testbench\TestCase;
 use Vulcaire\StaffApp\Client;
+use Illuminate\Support\Facades\Event;
+use Vulcaire\StaffApp\Laravel\Events\WebhookReceived;
 use Vulcaire\StaffApp\Laravel\Facades\StaffApp;
 use Vulcaire\StaffApp\Laravel\Http\Middleware\VerifyStaffAppWebhook;
+use Vulcaire\StaffApp\Laravel\Payloads\MirrorPayload;
+use Vulcaire\StaffApp\Laravel\RetryAfter;
 use Vulcaire\StaffApp\Laravel\StaffAppServiceProvider;
 
 final class IntegrationTest extends TestCase
@@ -84,9 +88,29 @@ final class IntegrationTest extends TestCase
         $this->postJson('/integration-hook', ['type' => 'worker.updated', 'data' => []])->assertUnauthorized();
     }
 
-    public function test_provider_does_not_register_an_automatic_webhook_endpoint(): void
+    public function test_webhook_route_verifies_signature_and_fires_an_event(): void
     {
-        $this->postJson('/staffapp/webhook')->assertNotFound();
+        Event::fake([WebhookReceived::class]);
+        $body = '{"type":"assignment.created","data":{"id":1}}';
+        $timestamp = (string) time();
+        $signature = 'v1,'.base64_encode(hash_hmac('sha256', 'evt_1.'.$timestamp.'.'.$body, str_repeat('s', 32), true));
+        $this->call('POST', '/staffapp/webhook', server: [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_WEBHOOK_ID' => 'evt_1',
+            'HTTP_WEBHOOK_TIMESTAMP' => $timestamp,
+            'HTTP_WEBHOOK_SIGNATURE' => $signature,
+        ], content: $body)->assertOk();
+        Event::assertDispatched(WebhookReceived::class, fn (WebhookReceived $event) => $event->type === 'assignment.created' && $event->id === 'evt_1');
+    }
+
+    public function test_payload_helper_omits_notes_unless_explicitly_passed(): void
+    {
+        $job = MirrorPayload::job('job-1', 1, 'Cover', '2026-12-01T09:00:00Z', '2026-12-01T17:00:00Z', [
+            ['role_external_id' => 'role-1', 'name' => 'Ignore me not', 'notes' => 'medical detail'],
+        ], 'Hall');
+        self::assertArrayNotHasKey('notes', $job);
+        self::assertSame(['role_external_id' => 'role-1', 'name' => 'Ignore me not', 'quantity_required' => 1], $job['roles'][0]);
+        self::assertSame([10, 30, 90, 270], RetryAfter::seconds());
     }
 
     public function test_configuration_is_publishable(): void
