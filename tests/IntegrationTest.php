@@ -106,7 +106,7 @@ final class IntegrationTest extends TestCase
     public function test_payload_helper_omits_notes_unless_explicitly_passed(): void
     {
         $job = MirrorPayload::job('job-1', 1, 'Cover', '2026-12-01T09:00:00Z', '2026-12-01T17:00:00Z', [
-            ['role_external_id' => 'role-1', 'name' => 'Ignore me not', 'notes' => 'medical detail'],
+            ['role_external_id' => 'role-1', 'name' => 'Ignore me not', 'notes' => 'free-text note'],
         ], 'Hall');
         self::assertArrayNotHasKey('notes', $job);
         self::assertSame(['role_external_id' => 'role-1', 'name' => 'Ignore me not', 'quantity_required' => 1], $job['roles'][0]);

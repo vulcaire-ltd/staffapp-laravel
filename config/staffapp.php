@@ -1,6 +1,8 @@
 <?php
 
 return [
+    // Server root. The client calls {base_url}/api/v1/external.
+    // Production: https://app.assignpoint.com
     'base_url' => env('STAFFAPP_BASE_URL'),
     'token' => env('STAFFAPP_API_TOKEN'),
     'timeout' => (float) env('STAFFAPP_TIMEOUT', 30),
